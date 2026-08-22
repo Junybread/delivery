@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>마감 페이스 트래커</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0A0D12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="마감 페이스">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+
+<style>
+  :root{
+    --bg:#0A0D12;
+    --bg-card:#12161D;
+    --bg-card2:#191F29;
+    --line:#232B36;
+    --text:#EDF1F5;
+    --text-dim:#8A94A3;
+    --text-faint:#5B6472;
+    --amber:#F5A623;
+    --amber-dim:#3A2E14;
+    --indigo:#8B9BF7;
+    --indigo-dim:#1E2340;
+    --safe:#3ADC8D;
+    --safe-dim:#0F2A20;
+    --warn:#FFD166;
+    --warn-dim:#332708;
+    --danger:#FF5D5D;
+    --danger-dim:#331414;
+    --accent: var(--amber);
+    --accent-dim: var(--amber-dim);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    height:100%;
+    overscroll-behavior-y:none;
+    -webkit-overflow-scrolling:touch;}
+  #app{max-width:480px;margin:0 auto;min-height:100vh;padding:16px 16px 40px;
+    overscroll-behavior-y:none;}
+  .mono{font-family:"SF Mono","Roboto Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;}
+
+  header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;padding:0 2px;}
+  header .brand{font-size:13px;letter-spacing:0.08em;color:var(--text-faint);text-transform:uppercase;}
+  header .clock{font-size:14px;color:var(--text-dim);}
+
+  .tabs{display:flex;gap:8px;margin-bottom:16px;}
+  .tab{flex:1;padding:12px 0;text-align:center;border-radius:12px;border:1px solid var(--line);
+    background:var(--bg-card);color:var(--text-dim);font-size:15px;font-weight:600;
+    transition:all .15s ease;}
+  .tab .sub{display:block;font-size:11px;font-weight:400;margin-top:2px;opacity:0.75;}
+  .tab.active[data-round="1"]{background:var(--amber-dim);border-color:var(--amber);color:var(--amber);}
+  .tab.active[data-round="3"]{background:var(--indigo-dim);border-color:var(--indigo);color:var(--indigo);}
+
+  .status-banner{border-radius:16px;padding:16px 18px;margin-bottom:14px;border:1px solid var(--line);
+    background:var(--bg-card);}
+  .status-banner .label{font-size:12px;color:var(--text-dim);margin-bottom:4px;}
+  .status-banner .headline{font-size:22px;font-weight:800;line-height:1.3;}
+  .status-banner .detail{font-size:13px;color:var(--text-dim);margin-top:6px;line-height:1.5;}
+  .status-banner.safe{background:var(--safe-dim);border-color:rgba(58,220,141,0.35);}
+  .status-banner.safe .headline{color:var(--safe);}
+  .status-banner.warn{background:var(--warn-dim);border-color:rgba(255,209,102,0.35);}
+  .status-banner.warn .headline{color:var(--warn);}
+  .status-banner.danger{background:var(--danger-dim);border-color:rgba(255,93,93,0.4);}
+  .status-banner.danger .headline{color:var(--danger);}
+  .status-banner.neutral .headline{color:var(--text-dim);}
+
+  .road{position:relative;height:14px;border-radius:8px;background:var(--bg-card2);
+    border:1px solid var(--line);margin-bottom:18px;overflow:visible;}
+  .road-fill{position:absolute;left:0;top:0;bottom:0;border-radius:8px;
+    background:linear-gradient(90deg, var(--accent), var(--accent));opacity:0.9;
+    transition:width .4s ease, background .4s ease;}
+  .road-fill.safe{background:var(--safe);}
+  .road-fill.warn{background:var(--warn);}
+  .road-fill.danger{background:var(--danger);}
+  .road-dashes{position:absolute;left:0;right:0;top:50%;height:2px;transform:translateY(-50%);
+    background:repeating-linear-gradient(90deg, rgba(255,255,255,0.35) 0 8px, transparent 8px 16px);}
+  .road-marker{position:absolute;top:50%;transform:translate(-50%,-50%);font-size:18px;
+    transition:left .4s ease;filter:drop-shadow(0 0 3px rgba(0,0,0,0.6));}
+
+  .counter-card{background:var(--bg-card);border:1px solid var(--line);border-radius:16px;
+    padding:18px;margin-bottom:14px;text-align:center;}
+  .counter-display{font-size:52px;font-weight:800;line-height:1;margin-bottom:2px;}
+  .counter-display .total{color:var(--text-faint);font-weight:600;}
+  .counter-hint{font-size:12px;color:var(--text-faint);margin-bottom:16px;}
+  .counter-buttons{display:flex;gap:10px;}
+  .btn-minus,.btn-plus{flex:1;padding:20px 0;border-radius:14px;border:none;font-size:22px;font-weight:800;}
+  .btn-minus{background:var(--bg-card2);color:var(--text-dim);flex:0 0 68px;}
+  .btn-plus{background:var(--accent);color:#0A0D12;font-size:20px;}
+  .btn-plus:active,.btn-minus:active{transform:scale(0.96);}
+  .edit-total{background:transparent;border:none;color:var(--text-faint);font-size:12px;
+    margin-top:12px;text-decoration:underline;text-underline-offset:3px;padding:6px;}
+
+  .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .stat{background:var(--bg-card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;}
+  .stat .k{font-size:11px;color:var(--text-faint);margin-bottom:4px;}
+  .stat .v{font-size:19px;font-weight:700;}
+  .stat .v.small{font-size:15px;}
+  .stat .v.behind{color:var(--danger);}
+  .stat .v.ahead{color:var(--safe);}
+
+  .setup-card{background:var(--bg-card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px;}
+  .setup-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;
+    border-bottom:1px solid var(--line);}
+  .setup-row:last-child{border-bottom:none;}
+  .setup-row label{font-size:14px;color:var(--text-dim);}
+  .setup-row input{background:var(--bg-card2);border:1px solid var(--line);color:var(--text);
+    border-radius:10px;padding:8px 10px;font-size:15px;width:110px;text-align:right;}
+  .setup-row input:focus{outline:1px solid var(--accent);}
+
+  .action-row{display:flex;gap:10px;}
+  .btn-start{flex:1;padding:16px 0;border-radius:14px;border:none;background:var(--accent);
+    color:#0A0D12;font-size:16px;font-weight:800;}
+  .btn-reset{padding:16px 18px;border-radius:14px;border:1px solid var(--line);background:var(--bg-card);
+    color:var(--text-dim);font-size:14px;font-weight:600;}
+  .btn-reset:active,.btn-start:active{transform:scale(0.97);}
+
+  .footnote{text-align:center;color:var(--text-faint);font-size:11px;margin-top:18px;line-height:1.6;}
+
+  .simple-toggle{position:fixed;top:12px;right:12px;z-index:40;background:var(--bg-card2);
+    border:1px solid var(--line);color:var(--text-dim);border-radius:20px;padding:8px 14px;
+    font-size:12px;font-weight:600;}
+
+  /* 심플 모드: 완료 버튼과 상태만 크게, 나머지는 숨김 */
+  .simple-mode .road,
+  .simple-mode .stats-grid,
+  .simple-mode .setup-card,
+  .simple-mode #btnHistory,
+  .simple-mode .footnote,
+  .simple-mode #counterSub,
+  .simple-mode .edit-total,
+  .simple-mode .action-row,
+  .simple-mode .status-banner .detail{
+    display:none !important;
+  }
+  .simple-mode .status-banner{padding:12px 14px;margin-top:36px;}
+  .simple-mode .status-banner .headline{font-size:17px;}
+  .simple-mode .counter-card{padding:14px;margin-top:10px;}
+  .simple-mode .counter-display{font-size:96px;}
+  .simple-mode .counter-hint{margin-bottom:22px;font-size:13px;}
+  .simple-mode .counter-buttons{gap:14px;}
+  .simple-mode .btn-plus{padding:70px 0;font-size:26px;border-radius:20px;}
+  .simple-mode .btn-minus{flex:0 0 84px;font-size:24px;border-radius:20px;}
+  .simple-mode .tabs{margin-bottom:10px;}
+  .simple-mode #app{cursor:pointer;}
+  .simple-mode .counter-hint::after{content:' · 화면 아무 곳이나 눌러도 완료돼요';}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--bg-card2);
+    border:1px solid var(--line);color:var(--text);padding:10px 16px;border-radius:10px;font-size:13px;
+    opacity:0;pointer-events:none;transition:opacity .25s ease;z-index:50;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div id="loadingOverlay" style="position:fixed;inset:0;background:var(--bg);z-index:100;
+  display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:14px;">
+  불러오는 중…
+</div>
+<button class="simple-toggle" id="btnSimpleToggle">심플 모드</button>
+<div id="app">
+  <header>
+    <span class="brand">배송 마감 페이스</span>
+    <span class="clock mono" id="clockNow">--:--:--</span>
+  </header>
+
+  <div class="tabs">
+    <button class="tab" id="tabRound1" data-round="1">
+      1차<span class="sub">밤 12시 마감</span>
+    </button>
+    <button class="tab" id="tabRound3" data-round="3">
+      3차<span class="sub">오전 7시 마감</span>
+    </button>
+  </div>
+
+  <div class="status-banner neutral" id="statusBanner">
+    <div class="label" id="statusLabel">상태</div>
+    <div class="headline" id="statusHeadline">시작 전</div>
+    <div class="detail" id="statusDetail">시작 시간과 오늘 총 건수를 입력하고 시작하세요.</div>
+  </div>
+
+  <div class="road">
+    <div class="road-dashes"></div>
+    <div class="road-fill" id="roadFill" style="width:0%"></div>
+    <div class="road-marker" id="roadMarker" style="left:0%">🚚</div>
+  </div>
+
+  <div class="counter-card">
+    <div class="counter-display">
+      <span class="mono" id="completedNum">0</span><span class="total mono"> / <span id="totalNum">40</span></span>
+    </div>
+    <div class="counter-hint" id="counterHint">완료한 배송 건수</div>
+    <div class="counter-sub" id="counterSub" style="display:none;font-size:13px;color:var(--indigo);
+      background:var(--indigo-dim);border:1px solid rgba(139,155,247,0.35);border-radius:10px;
+      padding:6px 10px;margin:-8px 0 14px;">
+      3차 자체 건수: <span class="mono" id="ownCompleted">0</span> / <span class="mono" id="ownTotal">60</span>건
+    </div>
+    <div class="counter-buttons">
+      <button class="btn-minus" id="btnMinus">−1</button>
+      <button class="btn-plus" id="btnPlus">+1 완료</button>
+    </div>
+    <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+      <button class="edit-total" id="btnEditCompleted">완료 건수 직접 수정</button>
+      <button class="edit-total" id="btnEditTotal">오늘 총 건수 수정</button>
+      <button class="edit-total" id="btnEditCarry" style="display:none;">1차 이어지는 건수 수정</button>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat">
+      <div class="k">경과 시간</div>
+      <div class="v mono" id="statElapsed">–</div>
+    </div>
+    <div class="stat">
+      <div class="k">마감까지 남은 시간</div>
+      <div class="v mono" id="statUntilDeadline">–</div>
+    </div>
+    <div class="stat">
+      <div class="k">현재 페이스 (건당)</div>
+      <div class="v mono" id="statPace">–</div>
+    </div>
+    <div class="stat">
+      <div class="k">현재 페이스 (시간당)</div>
+      <div class="v mono" id="statPacePerHour">–</div>
+    </div>
+    <div class="stat">
+      <div class="k">필요 페이스 (건당)</div>
+      <div class="v mono" id="statReqPace">–</div>
+    </div>
+    <div class="stat">
+      <div class="k">예상 마감 시각</div>
+      <div class="v mono" id="statEta">–</div>
+    </div>
+    <div class="stat">
+      <div class="k">마감 시각</div>
+      <div class="v mono" id="statDeadline">–</div>
+    </div>
+  </div>
+
+  <div class="setup-card">
+    <div class="setup-row">
+      <label for="inputStart">시작 시간</label>
+      <input type="time" id="inputStart">
+    </div>
+    <div class="setup-row">
+      <label for="inputTotal">오늘 총 건수</label>
+      <input type="number" id="inputTotal" min="1" step="1">
+    </div>
+    <div class="setup-row">
+      <label for="inputBoxes">총 박스 수</label>
+      <input type="number" id="inputBoxes" min="0" step="1" placeholder="선택">
+    </div>
+  </div>
+
+  <div class="action-row">
+    <button class="btn-start" id="btnStart">근무 시작 기록</button>
+    <button class="btn-reset" id="btnReset">초기화</button>
+  </div>
+
+  <button class="edit-total" id="btnHistory" style="display:block;margin:14px auto 0;">지난 기록 보기</button>
+  <button class="edit-total" id="btnCodes" style="display:block;margin:8px auto 0;">출입 비밀번호 참고자료</button>
+
+  <div class="footnote">
+    1차는 시작일 다음날 자정(00:00)을, 3차는 시작 당일 오전 7시를 마감으로 계산합니다.<br>
+    이 브라우저에 자동으로 저장되어 앱을 껐다 켜도, 다음 날이 되어도 이어집니다.
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div id="historyOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:60;">
+  <div style="max-width:480px;margin:40px auto;background:var(--bg-card);border:1px solid var(--line);
+    border-radius:16px;padding:18px;max-height:80vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="font-size:16px;font-weight:800;">지난 기록</div>
+      <button id="btnHistoryClose" style="background:var(--bg-card2);border:1px solid var(--line);color:var(--text-dim);
+        border-radius:8px;padding:6px 12px;font-size:13px;">닫기</button>
+    </div>
+    <div id="historyList" style="font-size:13px;color:var(--text-dim);">불러오는 중…</div>
+  </div>
+</div>
+
+<div id="codesOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:60;">
+  <div style="max-width:480px;margin:24px auto;background:var(--bg-card);border:1px solid var(--line);
+    border-radius:16px;padding:18px;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="font-size:16px;font-weight:800;">출입 비밀번호 참고자료</div>
+      <button id="btnCodesClose" style="background:var(--bg-card2);border:1px solid var(--line);color:var(--text-dim);
+        border-radius:8px;padding:6px 12px;font-size:13px;">닫기</button>
+    </div>
+
+    <input type="text" id="codeSearch" placeholder="지역/아파트/메모 검색"
+      style="width:100%;box-sizing:border-box;background:var(--bg-card2);border:1px solid var(--line);
+      color:var(--text);border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:14px;">
+
+    <div style="background:var(--bg-card2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:16px;">
+      <div style="font-size:12px;color:var(--text-faint);margin-bottom:8px;" id="codeFormTitle">새 항목 추가</div>
+      <input type="text" id="codeRegion" placeholder="지역 (예: 옥정동)"
+        style="width:100%;box-sizing:border-box;background:var(--bg-card);border:1px solid var(--line);
+        color:var(--text);border-radius:8px;padding:9px 10px;font-size:14px;margin-bottom:8px;">
+      <input type="text" id="codeApt" placeholder="아파트명 (예: 옥정 롯데캐슬)"
+        style="width:100%;box-sizing:border-box;background:var(--bg-card);border:1px solid var(--line);
+        color:var(--text);border-radius:8px;padding:9px 10px;font-size:14px;margin-bottom:8px;">
+      <input type="text" id="codePw" placeholder="공동현관 비밀번호"
+        style="width:100%;box-sizing:border-box;background:var(--bg-card);border:1px solid var(--line);
+        color:var(--text);border-radius:8px;padding:9px 10px;font-size:14px;margin-bottom:8px;">
+      <input type="text" id="codeNote" placeholder="메모 (선택, 예: 후문 이용/동별 다름 등)"
+        style="width:100%;box-sizing:border-box;background:var(--bg-card);border:1px solid var(--line);
+        color:var(--text);border-radius:8px;padding:9px 10px;font-size:14px;margin-bottom:10px;">
+      <div style="display:flex;gap:8px;">
+        <button id="btnCodeCancelEdit" style="display:none;flex:0 0 70px;padding:10px 0;border-radius:8px;
+          border:1px solid var(--line);background:var(--bg-card);color:var(--text-dim);font-size:13px;">취소</button>
+        <button id="btnCodeSave" style="flex:1;padding:10px 0;border-radius:8px;border:none;
+          background:var(--accent);color:#0A0D12;font-weight:800;font-size:14px;">저장</button>
+      </div>
+    </div>
+
+    <div id="codeList" style="font-size:13px;color:var(--text-dim);">불러오는 중…</div>
+  </div>
+</div>
+
+<div id="modalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:80;
+  align-items:center;justify-content:center;">
+  <div style="max-width:340px;width:86%;background:var(--bg-card);border:1px solid var(--line);
+    border-radius:16px;padding:20px;">
+    <div id="modalMessage" style="font-size:15px;color:var(--text);margin-bottom:14px;line-height:1.5;font-weight:600;"></div>
+    <input type="number" inputmode="numeric" id="modalInput" style="display:none;width:100%;
+      background:var(--bg-card2);border:1px solid var(--line);color:var(--text);border-radius:10px;
+      padding:12px;font-size:20px;text-align:center;margin-bottom:16px;box-sizing:border-box;">
+    <div style="display:flex;gap:10px;">
+      <button id="modalCancelBtn" style="flex:1;padding:13px 0;border-radius:10px;border:1px solid var(--line);
+        background:var(--bg-card2);color:var(--text-dim);font-weight:700;font-size:15px;">취소</button>
+      <button id="modalConfirmBtn" style="flex:1;padding:13px 0;border-radius:10px;border:none;
+        background:var(--accent);color:#0A0D12;font-weight:800;font-size:15px;">확인</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ---- 실수로 누른 뒤로가기가 화면을 벗어나지 않도록 방지 ----
+  (function trapBackButton(){
+    try{
+      history.pushState({ tracker: true }, '');
+      window.addEventListener('popstate', function(){
+        // 뒤로가기가 감지되면 즉시 같은 화면으로 다시 밀어넣어서 이탈을 막음
+        history.pushState({ tracker: true }, '');
+        toast('뒤로가기는 막아뒀어요 (작업 중 데이터 보호)');
+      });
+    }catch(e){
+      // history API를 못 쓰는 환경이면 조용히 무시
+    }
+  })();
+
+  // ---- pull-to-refresh 차단 (overscroll-behavior 미지원 브라우저용 폴백) ----
+  (function preventPullToRefresh(){
+    let startY = 0;
+    document.addEventListener('touchstart', (e)=>{
+      if(e.touches.length === 1) startY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchmove', (e)=>{
+      const y = e.touches[0].clientY;
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      // 화면 맨 위에서 아래로 당기는 동작만 막고, 그 외 스크롤은 그대로 둠
+      if(scrollTop <= 0 && y > startY){
+        e.preventDefault();
+      }
+    }, { passive: false });
+  })();
+
+  const DEFAULTS = {
+    1: { total: 40, deadlineLabel: "자정(00:00)" },
+    3: { total: 60, deadlineLabel: "오전 7:00" }
+  };
+
+  let currentRound = 1;
+  let sessions = {
+    1: { active:false, startTime:null, total:DEFAULTS[1].total, completed:0, boxes:0, lastUpdated:0 },
+    3: { active:false, startTime:null, total:DEFAULTS[3].total, completed:0, carryOver:0, boxes:0, lastUpdated:0 }
+  };
+
+  const el = id => document.getElementById(id);
+  const toastEl = el('toast');
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=>toastEl.classList.remove('show'), 1400);
+  }
+  function vibrate(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){} }
+
+  // ---- 커스텀 팝업 (샌드박스 환경에서 안 뜰 수 있는 window.prompt/confirm 대체) ----
+  let modalResolver = null;
+  function closeModal(result){
+    el('modalOverlay').style.display = 'none';
+    if(modalResolver){ modalResolver(result); modalResolver = null; }
+  }
+  function openModal(message, withInput, defaultValue){
+    el('modalMessage').textContent = message;
+    const inputEl = el('modalInput');
+    if(withInput){
+      inputEl.style.display = 'block';
+      inputEl.value = (defaultValue === undefined || defaultValue === null) ? '' : defaultValue;
+    } else {
+      inputEl.style.display = 'none';
+    }
+    el('modalOverlay').style.display = 'flex';
+    if(withInput){ setTimeout(()=>{ inputEl.focus(); inputEl.select(); }, 60); }
+    return new Promise(resolve=>{ modalResolver = resolve; });
+  }
+  // 숫자 입력 팝업: 취소하면 null, 입력하면 문자열 반환
+  function promptNumber(message, defaultValue){
+    return openModal(message, true, defaultValue);
+  }
+  // 예/아니오 팝업: true/false 반환
+  function confirmDialog(message){
+    return openModal(message, false).then(v => v === true);
+  }
+  el('modalCancelBtn').addEventListener('click', ()=> closeModal(null));
+  el('modalConfirmBtn').addEventListener('click', ()=>{
+    const inputEl = el('modalInput');
+    if(inputEl.style.display !== 'none'){
+      closeModal(inputEl.value);
+    } else {
+      closeModal(true);
+    }
+  });
+  el('modalInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ el('modalConfirmBtn').click(); }
+  });
+
+  // ---- 심플 모드: 완료 버튼만 크게, 나머지 정보는 필요할 때만 ----
+  let simpleMode = false;
+  function applySimpleMode(){
+    document.getElementById('app').classList.toggle('simple-mode', simpleMode);
+    el('btnSimpleToggle').textContent = simpleMode ? '자세히 보기' : '심플 모드';
+  }
+  el('btnSimpleToggle').addEventListener('click', ()=>{
+    simpleMode = !simpleMode;
+    applySimpleMode();
+    lsSet('simple-mode', simpleMode ? '1' : '0');
+  });
+  function loadSimpleMode(){
+    if(lsGet('simple-mode') === '1') simpleMode = true;
+    applySimpleMode();
+  }
+
+  // 심플 모드일 때는 화면 어디를 터치해도(−1 버튼, 회차 탭 제외) 완료(+1) 처리
+  document.getElementById('app').addEventListener('click', (e)=>{
+    if(!simpleMode) return;
+    if(e.target.closest('#btnMinus')) return;
+    if(e.target.closest('.tabs')) return;
+    if(e.target.closest('#btnPlus')) return; // 버튼 자체는 자기 리스너가 이미 처리함(중복 방지)
+    el('btnPlus').click();
+  });
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function fmtTime(d){ return pad(d.getHours())+":"+pad(d.getMinutes()); }
+  function fmtClock(d){ return pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds()); }
+  function fmtMin(totalMinutes){
+    const sign = totalMinutes < 0 ? "-" : "";
+    const m = Math.round(Math.abs(totalMinutes));
+    const h = Math.floor(m/60);
+    const mm = m%60;
+    if(h>0) return `${sign}${h}시간 ${mm}분`;
+    return `${sign}${mm}분`;
+  }
+  // "근무 날짜" 기준 문자열 (YYYY-MM-DD), startTime 기준
+  function shiftDateKey(dateOrIso){
+    const d = dateOrIso instanceof Date ? dateOrIso : new Date(dateOrIso);
+    return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+  }
+
+  // ---- 저장소 (localStorage: 브라우저 표준, 동기 방식이라 실패할 일이 거의 없음) ----
+  const LS_PREFIX = 'deliveryTracker:';
+  function lsGet(key){
+    try{ return localStorage.getItem(LS_PREFIX + key); }catch(e){ return null; }
+  }
+  function lsSet(key, value){
+    try{ localStorage.setItem(LS_PREFIX + key, value); return true; }catch(e){ console.error('저장 실패', e); return false; }
+  }
+  function lsKeysWithPrefix(prefix){
+    const keys = [];
+    try{
+      for(let i=0;i<localStorage.length;i++){
+        const k = localStorage.key(i);
+        if(k && k.indexOf(LS_PREFIX + prefix) === 0) keys.push(k.slice(LS_PREFIX.length));
+      }
+    }catch(e){}
+    return keys;
+  }
+
+  function saveLastRound(){
+    lsSet('last-round', String(currentRound));
+  }
+  function loadLastRound(){
+    const v = lsGet('last-round');
+    if(v === '1' || v === '3') currentRound = parseInt(v, 10);
+  }
+
+  function loadSession(round){
+    const raw = lsGet(`session-round-${round}`);
+    if(raw){
+      try{
+        const parsed = JSON.parse(raw);
+        sessions[round] = Object.assign({active:false,startTime:null,total:DEFAULTS[round].total,completed:0,carryOver:0,boxes:0}, parsed);
+      }catch(e){
+        console.error('세션 불러오기 실패', e);
+      }
+    }
+  }
+  function saveSession(round){
+    lsSet(`session-round-${round}`, JSON.stringify(sessions[round]));
+  }
+
+  // 지난 근무를 날짜별 기록으로 보관
+  function archiveIfNeeded(round){
+    const s = sessions[round];
+    if(!s.active || !s.startTime) return;
+    if(s.completed <= 0) return; // 실제로 카운팅한 게 없으면 기록 안 남김
+    const key = `history-round-${round}-${shiftDateKey(s.startTime)}`;
+    lsSet(key, JSON.stringify({
+      round, date: shiftDateKey(s.startTime), startTime: s.startTime,
+      total: s.total, completed: s.completed, carryOver: s.carryOver || 0,
+      archivedAt: new Date().toISOString()
+    }));
+  }
+
+  function loadHistoryList(){
+    const listEl = el('historyList');
+    const keys = lsKeysWithPrefix('history-round-');
+    if(keys.length === 0){
+      listEl.textContent = '아직 저장된 기록이 없습니다.';
+      return;
+    }
+    const items = [];
+    for(const k of keys){
+      const raw = lsGet(k);
+      if(raw){
+        try{ items.push(JSON.parse(raw)); }catch(e){}
+      }
+    }
+    items.sort((a,b)=> (b.startTime||'').localeCompare(a.startTime||''));
+    listEl.innerHTML = items.map(it=>{
+      const d = new Date(it.startTime);
+      const roundLabel = it.round===1 ? '1차' : '3차';
+      const carry = it.carryOver ? ` (+${it.carryOver} 이어짐)` : '';
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--line);">
+        <div style="color:var(--text);font-weight:700;font-size:14px;">${it.date} · ${roundLabel}</div>
+        <div style="margin-top:2px;">완료 ${it.completed} / 목표 ${it.total}${carry} · 시작 ${fmtTime(d)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  el('btnHistory').addEventListener('click', ()=>{
+    el('historyOverlay').style.display = 'block';
+    loadHistoryList();
+  });
+  el('btnHistoryClose').addEventListener('click', ()=>{
+    el('historyOverlay').style.display = 'none';
+  });
+
+  // ---- 출입 비밀번호 참고자료 (지역별 → 아파트별) ----
+  let codes = [];
+  let editingCodeId = null;
+
+  function loadCodes(){
+    const raw = lsGet('apartment-codes');
+    try{ codes = raw ? JSON.parse(raw) : []; }catch(e){ codes = []; }
+  }
+  function saveCodes(){
+    lsSet('apartment-codes', JSON.stringify(codes));
+  }
+
+  function resetCodeForm(){
+    editingCodeId = null;
+    el('codeFormTitle').textContent = '새 항목 추가';
+    el('codeRegion').value = '';
+    el('codeApt').value = '';
+    el('codePw').value = '';
+    el('codeNote').value = '';
+    el('btnCodeCancelEdit').style.display = 'none';
+    el('btnCodeSave').textContent = '저장';
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  function renderCodeList(){
+    const listEl = el('codeList');
+    const q = (el('codeSearch').value || '').trim().toLowerCase();
+    let items = codes;
+    if(q){
+      items = codes.filter(c =>
+        (c.region||'').toLowerCase().includes(q) ||
+        (c.apt||'').toLowerCase().includes(q) ||
+        (c.note||'').toLowerCase().includes(q)
+      );
+    }
+    if(items.length === 0){
+      listEl.innerHTML = codes.length === 0
+        ? '아직 등록된 항목이 없습니다. 위에서 추가해보세요.'
+        : '검색 결과가 없습니다.';
+      return;
+    }
+    const byRegion = {};
+    for(const c of items){
+      const r = c.region || '(지역 미지정)';
+      if(!byRegion[r]) byRegion[r] = [];
+      byRegion[r].push(c);
+    }
+    const regions = Object.keys(byRegion).sort((a,b)=>a.localeCompare(b,'ko'));
+    let html = '';
+    for(const r of regions){
+      byRegion[r].sort((a,b)=>(a.apt||'').localeCompare(b.apt||'','ko'));
+      html += `<div style="color:var(--text-faint);font-size:11px;font-weight:700;letter-spacing:0.04em;
+        margin:14px 0 6px;text-transform:uppercase;">${escapeHtml(r)}</div>`;
+      for(const c of byRegion[r]){
+        html += `<div style="background:var(--bg-card2);border:1px solid var(--line);border-radius:10px;
+          padding:10px 12px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+            <div style="flex:1;min-width:0;">
+              <div style="color:var(--text);font-weight:700;font-size:14px;">${escapeHtml(c.apt||'')}</div>
+              <div class="mono" style="color:var(--accent);font-size:18px;font-weight:800;margin-top:2px;">${escapeHtml(c.pw||'')}</div>
+              ${c.note ? `<div style="color:var(--text-dim);font-size:12px;margin-top:4px;">${escapeHtml(c.note)}</div>` : ''}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;flex:0 0 auto;">
+              <button onclick="window.__editCode('${c.id}')" style="background:var(--bg-card);border:1px solid var(--line);
+                color:var(--text-dim);border-radius:8px;padding:6px 10px;font-size:12px;">수정</button>
+              <button onclick="window.__deleteCode('${c.id}')" style="background:var(--bg-card);border:1px solid rgba(255,93,93,0.4);
+                color:var(--danger);border-radius:8px;padding:6px 10px;font-size:12px;">삭제</button>
+            </div>
+          </div>
+        </div>`;
+      }
+    }
+    listEl.innerHTML = html;
+  }
+
+  window.__editCode = function(id){
+    const c = codes.find(x => x.id === id);
+    if(!c) return;
+    editingCodeId = id;
+    el('codeFormTitle').textContent = '항목 수정';
+    el('codeRegion').value = c.region || '';
+    el('codeApt').value = c.apt || '';
+    el('codePw').value = c.pw || '';
+    el('codeNote').value = c.note || '';
+    el('btnCodeCancelEdit').style.display = 'inline-block';
+    el('btnCodeSave').textContent = '수정 완료';
+    el('codeRegion').scrollIntoView({ block:'center', behavior:'smooth' });
+  };
+  window.__deleteCode = async function(id){
+    const ok = await confirmDialog('이 항목을 삭제할까요?');
+    if(!ok) return;
+    codes = codes.filter(x => x.id !== id);
+    saveCodes();
+    renderCodeList();
+    toast('삭제됨');
+  };
+
+  el('btnCodeSave').addEventListener('click', ()=>{
+    const region = el('codeRegion').value.trim();
+    const apt = el('codeApt').value.trim();
+    const pw = el('codePw').value.trim();
+    const note = el('codeNote').value.trim();
+    if(!apt || !pw){
+      toast('아파트명과 비밀번호는 꼭 입력해주세요');
+      return;
+    }
+    if(editingCodeId){
+      const c = codes.find(x => x.id === editingCodeId);
+      if(c){ c.region = region; c.apt = apt; c.pw = pw; c.note = note; }
+      toast('수정됨');
+    } else {
+      codes.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2,7), region, apt, pw, note });
+      toast('추가됨');
+    }
+    saveCodes();
+    resetCodeForm();
+    renderCodeList();
+  });
+  el('btnCodeCancelEdit').addEventListener('click', resetCodeForm);
+  el('codeSearch').addEventListener('input', renderCodeList);
+
+  el('btnCodes').addEventListener('click', ()=>{
+    el('codesOverlay').style.display = 'block';
+    resetCodeForm();
+    loadCodes();
+    renderCodeList();
+  });
+  el('btnCodesClose').addEventListener('click', ()=>{
+    el('codesOverlay').style.display = 'none';
+  });
+
+  // 8시간 넘게 지난 활성 세션은 "지난 근무"로 간주 (같은 회차의 최대 소요 시간은 5시간 미만,
+  // 같은 회차가 다시 시작되기까지는 최소 19시간 이상 걸리므로 8시간을 기준으로 구분)
+  function isStale(s){
+    if(!s.active || !s.startTime) return false;
+    return (Date.now() - new Date(s.startTime).getTime()) > 8*60*60*1000;
+  }
+  function ensureFreshForNewShift(round){
+    const s = sessions[round];
+    if(isStale(s)){
+      archiveIfNeeded(round);
+      sessions[round] = { active:false, startTime:null, total: s.total || DEFAULTS[round].total, completed:0, carryOver:0, boxes:0 };
+      saveSession(round);
+      toast('새 근무일로 자동 전환, 이전 기록은 저장됨');
+    }
+  }
+
+  // ---- deadline calc ----
+  function computeDeadline(round, startDate){
+    const d = new Date(startDate.getTime());
+    if(round === 1){
+      // next midnight after start
+      d.setHours(24,0,0,0); // rolls to next day's 00:00
+    } else {
+      d.setHours(7,0,0,0);
+      if(d.getTime() <= startDate.getTime()){
+        d.setDate(d.getDate()+1);
+      }
+    }
+    return d;
+  }
+
+  function todayWithTime(hh, mm, referenceDate){
+    const d = referenceDate ? new Date(referenceDate.getTime()) : new Date();
+    d.setHours(hh, mm, 0, 0);
+    return d;
+  }
+
+  // ---- UI render ----
+  function setAccent(round){
+    document.documentElement.style.setProperty('--accent', round===1 ? 'var(--amber)' : 'var(--indigo)');
+    document.documentElement.style.setProperty('--accent-dim', round===1 ? 'var(--amber-dim)' : 'var(--indigo-dim)');
+  }
+
+  function render(){
+    const s = sessions[currentRound];
+    el('tabRound1').classList.toggle('active', currentRound===1);
+    el('tabRound3').classList.toggle('active', currentRound===3);
+    setAccent(currentRound);
+
+    const offset = (currentRound === 3) ? (s.carryOver || 0) : 0;
+    el('totalNum').textContent = s.total + offset;
+    el('completedNum').textContent = s.completed + offset;
+    el('counterHint').textContent = (currentRound === 3 && offset > 0)
+      ? `이어지는 번호 (1차 ${offset}건에 이어서 진행)`
+      : '완료한 배송 건수';
+
+    const counterSub = el('counterSub');
+    if(currentRound === 3){
+      counterSub.style.display = 'block';
+      el('ownCompleted').textContent = s.completed;
+      el('ownTotal').textContent = s.total;
+    } else {
+      counterSub.style.display = 'none';
+    }
+    el('btnEditCarry').style.display = (currentRound === 3) ? 'inline-block' : 'none';
+
+    const startInputVal = s.startTime ? fmtTime(new Date(s.startTime)) : "";
+    if(document.activeElement !== el('inputStart')) el('inputStart').value = startInputVal;
+    if(document.activeElement !== el('inputTotal')) el('inputTotal').value = s.total;
+    if(document.activeElement !== el('inputBoxes')) el('inputBoxes').value = s.boxes || '';
+
+    el('btnStart').textContent = s.active ? "시작 시간 다시 설정" : "근무 시작 기록";
+
+    const pct = s.total>0 ? Math.min(100, (s.completed/s.total)*100) : 0;
+
+    if(!s.active){
+      el('statusBanner').className = 'status-banner neutral';
+      el('statusLabel').textContent = '상태';
+      el('statusHeadline').textContent = '시작 전';
+      el('statusDetail').textContent = `시작 시간과 오늘 총 건수를 입력하고 "근무 시작 기록"을 눌러주세요. (기본 마감: ${DEFAULTS[currentRound].deadlineLabel})`;
+      el('statEta').textContent = '–';
+      el('statPace').textContent = '–';
+      el('statPacePerHour').textContent = '–';
+      el('statReqPace').textContent = '–';
+      el('statElapsed').textContent = '–';
+      el('statUntilDeadline').textContent = '–';
+      el('statDeadline').textContent = '–';
+      el('roadFill').style.width = pct+'%';
+      el('roadFill').className = 'road-fill';
+      el('roadMarker').style.left = pct+'%';
+      return;
+    }
+
+    const now = new Date();
+    const start = new Date(s.startTime);
+    const deadline = computeDeadline(currentRound, start);
+    const elapsedMin = Math.max(0, (now - start)/60000);
+    const remaining = Math.max(0, s.total - s.completed);
+    const untilDeadlineMin = (deadline - now)/60000;
+
+    el('statElapsed').textContent = fmtMin(elapsedMin);
+    el('statUntilDeadline').textContent = untilDeadlineMin>=0 ? fmtMin(untilDeadlineMin) : ('마감 초과 ' + fmtMin(Math.abs(untilDeadlineMin)));
+    el('statDeadline').textContent = fmtTime(deadline);
+
+    const paceEl = el('statPace');
+    const pacePerHourEl = el('statPacePerHour');
+    const reqPaceEl = el('statReqPace');
+    const etaEl = el('statEta');
+
+    let pace = null;
+    if(s.completed > 0){
+      pace = elapsedMin / s.completed;
+      paceEl.textContent = pace.toFixed(1) + '분';
+      const perHour = pace > 0 ? (60 / pace) : 0;
+      pacePerHourEl.textContent = perHour.toFixed(1) + '건';
+    } else {
+      paceEl.textContent = '집계 전';
+      pacePerHourEl.textContent = '집계 전';
+    }
+
+    let reqPace = null;
+    if(remaining > 0){
+      reqPace = untilDeadlineMin / remaining;
+      reqPaceEl.textContent = (reqPace>0 ? reqPace.toFixed(1) : '0.0') + '분';
+      reqPaceEl.className = 'v small mono';
+      if(pace !== null){
+        reqPaceEl.classList.add(pace <= reqPace ? 'ahead' : 'behind');
+      }
+    } else {
+      reqPaceEl.textContent = '완료';
+    }
+
+    let banner, fillClass;
+    if(remaining <= 0){
+      banner = { cls:'safe', label:'상태', head:'오늘 배송 완료 🎉', detail:`총 ${s.total}건을 모두 마쳤습니다. 수고하셨어요.` };
+      etaEl.textContent = fmtTime(now);
+      fillClass = 'safe';
+    } else if(pace === null){
+      const bufferIfStart = untilDeadlineMin - remaining*0; // unknown, just show countdown
+      banner = { cls:'neutral', label:'상태', head:'집계 대기 중', detail:`완료 건수를 입력하면 페이스와 예상 마감 시각이 계산됩니다. 마감까지 ${fmtMin(untilDeadlineMin)} 남았습니다.` };
+      etaEl.textContent = '–';
+      fillClass = '';
+    } else {
+      const estRemainingMin = remaining * pace;
+      const eta = new Date(now.getTime() + estRemainingMin*60000);
+      etaEl.textContent = fmtTime(eta);
+      const buffer = untilDeadlineMin - estRemainingMin;
+
+      if(buffer >= 15){
+        banner = { cls:'safe', label:'상태 · 여유 있음', head:`여유 ${fmtMin(buffer)}`,
+          detail:`이 페이스면 마감보다 ${fmtMin(buffer)} 일찍 끝납니다. 남은 ${remaining}건.` };
+        fillClass = 'safe';
+      } else if(buffer >= 0){
+        banner = { cls:'warn', label:'상태 · 주의', head:`여유 ${fmtMin(buffer)}뿐`,
+          detail:`페이스를 유지해야 마감을 지킬 수 있어요. 필요 페이스는 건당 ${reqPace.toFixed(1)}분입니다.` };
+        fillClass = 'warn';
+      } else {
+        banner = { cls:'danger', label:'상태 · 위험', head:`이대로면 ${fmtMin(Math.abs(buffer))} 늦음`,
+          detail:`현재 페이스(건당 ${pace.toFixed(1)}분)가 필요 페이스(건당 ${reqPace.toFixed(1)}분)보다 느립니다. 속도를 올려야 해요.` };
+        fillClass = 'danger';
+      }
+    }
+
+    el('statusBanner').className = 'status-banner ' + banner.cls;
+    el('statusLabel').textContent = banner.label;
+    el('statusHeadline').textContent = banner.head;
+    el('statusDetail').textContent = banner.detail;
+
+    el('roadFill').style.width = pct+'%';
+    el('roadFill').className = 'road-fill ' + fillClass;
+    el('roadMarker').style.left = pct+'%';
+  }
+
+  // ---- events ----
+  el('tabRound1').addEventListener('click', ()=>{ currentRound=1; saveLastRound(); render(); });
+  el('tabRound3').addEventListener('click', ()=>{ currentRound=3; saveLastRound(); render(); });
+
+  el('btnPlus').addEventListener('click', async ()=>{
+    await ensureFreshForNewShift(currentRound);
+    const s = sessions[currentRound];
+    let justStarted = false;
+    if(!s.active){
+      s.startTime = new Date().toISOString();
+      s.active = true;
+      const totalVal = parseInt(el('inputTotal').value, 10);
+      s.total = (!isNaN(totalVal) && totalVal>0) ? totalVal : (s.total || DEFAULTS[currentRound].total);
+      if(currentRound === 3 && !s.carryOverManual){
+        s.carryOver = sessions[1].completed || 0;
+      }
+      justStarted = true;
+    }
+    s.completed += 1;
+    vibrate(15);
+    saveSession(currentRound);
+    render();
+    if(justStarted) toast('시작 시간 자동 기록됨');
+  });
+  el('btnMinus').addEventListener('click', ()=>{
+    const s = sessions[currentRound];
+    s.completed = Math.max(0, s.completed - 1);
+    saveSession(currentRound);
+    render();
+  });
+
+  el('btnEditTotal').addEventListener('click', async ()=>{
+    const s = sessions[currentRound];
+    const val = await promptNumber('오늘 총 건수', s.total);
+    if(val === null) return;
+    const n = parseInt(val, 10);
+    if(!isNaN(n) && n > 0){
+      s.total = n;
+      saveSession(currentRound);
+      render();
+      toast('총 건수 수정됨');
+    }
+  });
+
+  el('btnEditCompleted').addEventListener('click', async ()=>{
+    const s = sessions[currentRound];
+    const label = currentRound === 3 ? '3차 자체 완료 건수 (이어지는 번호 제외)' : '완료 건수';
+    const val = await promptNumber(label, s.completed);
+    if(val === null) return;
+    const n = parseInt(val, 10);
+    if(!isNaN(n) && n >= 0){
+      if(!s.active){
+        // 아직 시작 전이면 지금 시각으로 자동 시작 처리
+        s.startTime = new Date().toISOString();
+        s.active = true;
+        if(currentRound === 3 && !s.carryOverManual){
+          s.carryOver = sessions[1].completed || 0;
+        }
+      }
+      s.completed = n;
+      saveSession(currentRound);
+      render();
+      toast('완료 건수 수정됨');
+    }
+  });
+
+  el('btnEditCarry').addEventListener('click', async ()=>{
+    const s = sessions[3];
+    const val = await promptNumber('1차에서 이어지는 건수 (예: 1차가 42건이었으면 42)', s.carryOver || 0);
+    if(val === null) return;
+    const n = parseInt(val, 10);
+    if(!isNaN(n) && n >= 0){
+      s.carryOver = n;
+      s.carryOverManual = true; // 수동으로 정한 값은 자동 스냅샷이 덮어쓰지 않음
+      saveSession(3);
+      render();
+      toast('이어지는 건수 수정됨');
+    }
+  });
+
+  el('inputTotal').addEventListener('change', ()=>{
+    const s = sessions[currentRound];
+    const n = parseInt(el('inputTotal').value, 10);
+    if(!isNaN(n) && n > 0){
+      s.total = n;
+      saveSession(currentRound);
+      render();
+    }
+  });
+
+  el('inputBoxes').addEventListener('change', ()=>{
+    const s = sessions[currentRound];
+    const n = parseInt(el('inputBoxes').value, 10);
+    s.boxes = (!isNaN(n) && n >= 0) ? n : 0;
+    saveSession(currentRound);
+  });
+
+  el('btnStart').addEventListener('click', async ()=>{
+    await ensureFreshForNewShift(currentRound);
+    const s = sessions[currentRound];
+    const timeVal = el('inputStart').value;
+    const totalVal = parseInt(el('inputTotal').value, 10);
+    let startDate;
+    if(timeVal){
+      const [hh, mm] = timeVal.split(':').map(Number);
+      startDate = todayWithTime(hh, mm);
+      // if round 3 and chosen time is e.g. 02:30 but current clock already past midnight into next day edge cases are fine as-is
+      // if start time appears to be in the future by a lot for round 1 (e.g. entered 19:30 but it's already 23:00), assume it already happened today - fine, Date uses today's date.
+    } else {
+      startDate = new Date();
+    }
+    s.startTime = startDate.toISOString();
+    s.total = (!isNaN(totalVal) && totalVal>0) ? totalVal : (s.total || DEFAULTS[currentRound].total);
+    if(currentRound === 3 && !s.carryOver && !s.carryOverManual){
+      s.carryOver = sessions[1].completed || 0;
+    }
+    s.active = true;
+    saveSession(currentRound);
+    render();
+    toast('근무 시작 기록됨');
+  });
+
+  el('btnReset').addEventListener('click', async ()=>{
+    const ok = await confirmDialog('현재 회차 기록을 초기화할까요? 완료 건수와 시작 시간이 모두 지워집니다.');
+    if(!ok) return;
+    await archiveIfNeeded(currentRound);
+    sessions[currentRound] = { active:false, startTime:null, total:DEFAULTS[currentRound].total, completed:0, carryOver:0, boxes:0 };
+    saveSession(currentRound);
+    render();
+    toast('초기화됨 (완료 건수는 지난 기록에 저장됨)');
+  });
+
+  // ---- clock tick ----
+  function tick(){
+    el('clockNow').textContent = fmtClock(new Date());
+    render();
+  }
+  setInterval(tick, 1000);
+
+  // ---- init ----
+  loadSession(1);
+  loadSession(3);
+  loadLastRound();
+  loadSimpleMode();
+  tick();
+  const loadingOverlayEl = document.getElementById('loadingOverlay');
+  if(loadingOverlayEl) loadingOverlayEl.style.display = 'none';
+
+  // 화면이 가려지거나(뒤로가기, 다른 앱 전환 등) 페이지가 닫히기 직전에
+  // 혹시 진행 중이던 저장이 있으면 한 번 더 강제로 저장해서 유실을 막음
+  function flushAll(){
+    saveSession(1);
+    saveSession(3);
+    saveLastRound();
+  }
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'hidden') flushAll();
+  });
+  window.addEventListener('pagehide', flushAll);
+  window.addEventListener('blur', flushAll);
+})();
+</script>
+</body>
+</html>
